@@ -7,6 +7,7 @@ from time import sleep
 from datetime import datetime
 from utils.azure_client import stream_chat_completion  # Must yield (text, finish_reason)
 from utils.chat_store import new_chat, ChatSession
+import streamlit.components.v1 as components  # <-- for browser JS
 
 load_dotenv(override=True)
 
@@ -30,16 +31,16 @@ if "top_p_draft" not in st.session_state:
     st.session_state.top_p_draft = 1.0  # Default top_p
 if "dark_quote" not in st.session_state:
     st.session_state.dark_quote = None  # Cache the AI-generated quote
+if "browser_time" not in st.session_state:
+    st.session_state.browser_time = None  # <-- for browser JS time
 
-
+# ---------- Helper Functions ----------
 def set_active(chat_id: str):
     st.session_state.active_chat_id = chat_id
-
 
 def get_active_chat() -> Optional[ChatSession]:
     cid = st.session_state.active_chat_id
     return st.session_state.chats.get(cid) if cid else None
-
 
 def show_thinking_animation(placeholder):
     dots = ["Dark Thinking.", "Dark Thinking..", "Dark Thinking..."]
@@ -48,9 +49,7 @@ def show_thinking_animation(placeholder):
             placeholder.markdown(f"🌀 **{dot}**")
             sleep(0.2)
 
-
 def generate_funky_greeting():
-    """Generate a funky dark-humor greeting with the LLM."""
     prompt = [
         {"role": "system", "content": "You are a darkly witty AI greeter. Always return 1–2 short sentences with emojis. Make it mischievous, fun, and slightly chaotic."},
         {"role": "user", "content": "Give me one funky dark-humor inspired greeting for a new chat."}
@@ -65,9 +64,7 @@ def generate_funky_greeting():
         greeting += text_piece
     return greeting.strip()
 
-
 def generate_dark_quote():
-    """Generate a dark humor motivational quote from the LLM."""
     prompt = [
         {"role": "system", "content": "You are a witty assistant that produces short dark humor motivational quotes. Each should be one sentence, clever, and end with a cheeky tone, simple english."},
         {"role": "user", "content": "Give me one dark humor motivational quote, simple english."}
@@ -82,6 +79,19 @@ def generate_dark_quote():
         quote_text += text_piece
     return quote_text.strip()
 
+# ---------- Inject JS to get browser time ----------
+js_code = """
+<script>
+const now = new Date();
+const hours = now.getHours();
+const minutes = now.getMinutes();
+const ampm = hours >= 12 ? 'PM' : 'AM';
+const hour12 = hours % 12 || 12;
+const timeString = hour12 + ":" + String(minutes).padStart(2, '0') + " " + ampm;
+window.parent.postMessage({isStreamlitMessage:true, type:'browserTime', time: timeString}, '*');
+</script>
+"""
+components.html(js_code, height=0)
 
 # ---------- Sidebar ----------
 with st.sidebar:
@@ -129,15 +139,14 @@ with st.sidebar:
     st.divider()
     st.caption(f"**🔥 Chaos Fuel:** {st.session_state.dark_quote}")
 
-
 # ---------- Header (Top Bar Left → Right) ----------
 active = get_active_chat()
-
 col_time, col_msgs, col_role, col_tokens, col_vibe = st.columns([1, 1, 2, 3, 2])
 
+# --- Display browser time if available ---
 with col_time:
-    current_time = datetime.now().strftime("%I:%M %p")
-    st.markdown(f"🕒 **{current_time}**")
+    time_display = st.session_state.browser_time or datetime.now().strftime("%I:%M %p")
+    st.markdown(f"🕒 **{time_display}**")
 
 with col_msgs:
     msg_count = len(active.messages) if active else 0
