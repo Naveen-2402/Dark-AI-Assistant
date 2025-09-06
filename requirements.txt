@@ -1,4 +1,7 @@
 streamlit
 openai
 python-dotenv
-reportlab
+streamlit-js-eval
+duckduckgo-search
+beautifulsoup4
+requests
